@@ -1,0 +1,20 @@
+<!-- Этот шаблон содержит скелет HTML, заголовок и ссылку для входа на сайт (или выхода, если пользователь уже вошёл). Он также отображает всплывающие сообщения, если они есть. Блок {% block body %} может быть заменён в дочернем шаблоне на блок с тем же именем (body).
+
+Также из шаблона доступен словарь session, и вы можете его использовать для проверки - вошёл ли пользователь или нет. Заметим, что в Jinja вы можете иметь доступ к отсутствующим атрибутам и элементам объектов / словарей, что делает следующий код работоспособным, даже при отсутствии в сессии ключа 'logged_in'-->
+<!doctype html>
+<title>Мой блог</title>
+<link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+<div class=page>
+  <h1>Flaskr</h1>
+  <div class=metanav>
+  {% if not session.logged_in %}
+    <a href="{{ url_for('login') }}">log in</a>
+  {% else %}
+    <a href="{{ url_for('logout') }}">log out</a>
+  {% endif %}
+  </div>
+  {% for message in get_flashed_messages() %}
+    <div class=flash>{{ message }}</div>
+  {% endfor %}
+  {% block body %}{% endblock %}
+</div>
