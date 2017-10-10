@@ -91,9 +91,68 @@ def init_db():
         with app.open_resource('schema.sql', mode='r') as f:
             db.cursor().executescript(f.read())
         db.commit()
+"""8.) Пишем функции представления. Всего понадобиться 4 таких функции.
+а)Показать записи
+Это представление показывает все записи, хранящиеся в базе данных. Оно соответствует главной странице вашего приложения,
+и выбирает все заголовки и тексты из базы данных. Запись с наибольшим id (последняя по времени) будет наверху. 
+Строки, возвращаемые курсором немного похожи на кортежи, так как мы используем фабрику строк sqlite3.Row
+Функция представления передаёт записи в виде словаря шаблону show_entries.html и возвращает сформированное отображение."""
+@app.route('/')
+def show_entries():
+    db = get_db()
+    cur = db.execute('select title, text from entries order by id desc')
+    entries = cur.fetchall()
+    return render_template('show_entries.html', entries=entries)
+"""
+б)Добавление новой записи
+Это представление позволяет пользователю, если он осуществил вход, добавлять новые записи. 
+Оно реагирует только на запросы типа POST, а фактическая форма отображается на странице show_entries. 
+Если всё работает хорошо, наше сообщение будет передано (flash()) следующему запросу и произойдёт возврат 
+через перенаправление на страницу show_entries.
 
+Замечание: здесь есть проверка на то, что пользователь вошёл (ключ внутри сессии logged_in присутствует и установлен в True)."""
+@app.route('/add', methods=['POST'])
+def add_entry():
+    if not session.get('logged_in'):
+        abort(401)
+    db = get_db()
+    db.execute('insert into entries (title, text) values (?, ?)',#?? - для безопасности приложения от SQL-инъекций.
+                [request.form['title'], request.form['text']])
+    db.commit()
+    flash('New entry was successfully posted')
+    return redirect(url_for('show_entries'))
+"""
+в)Вход
+При входе производится проверка имя пользователя и пароля с значениями, хранимыми в конфигурации, и в сессии устанавливается 
+ключ logged_in. Если пользователь зашёл успешно, этот ключ устанавливается в True, и пользователь возвращается обратно к странице 
+show_entries. К тому же, появляется всплывающее сообщение, что он или она зашли успешно. 
+При возникновении ошибки, шаблон об этом получает уведомление, и происходит повторный запрос 
+у пользователя имени пользователя и пароля"""
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if request.form['username'] != app.config['USERNAME']:
+            error = 'Invalid username'
+        elif request.form['password'] != app.config['PASSWORD']:
+            error = 'Invalid password'
+        else:
+            session['logged_in'] = True
+            flash('You were logged in')
+            return redirect(url_for('show_entries'))
+    return render_template('login.html', error=error)
+"""
+г)Выход
+Функция выхода, с другой стороны, удаляет обратно этот ключ из сессии. 
+Здесь мы используем ловкий трюк: если вы используете метод словаря pop() и передаёте ему второй параметр (по умолчанию), 
+метод удаляет ключ из словаря при его наличии или ничего не делает если такого ключа нет. 
+Это полезно, потому что теперь нам не надо делать проверку, вошёл ли пользователь или нет."""
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    flash('You were logged out')
+    return redirect(url_for('show_entries'))
 """4.)Наконец, мы просто добавляем строчку в конце файла, которая запускает сервер, 
 если мы хотим запустить этот файл как отдельное приложение:"""
-
 if __name__ == '__main__':
     app.run()
